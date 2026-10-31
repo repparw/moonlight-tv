@@ -87,7 +87,7 @@ bool streaming_refresh_stats() {
         lv_label_set_text_fmt(controller->stats_items.drop_rate, "%.2f%%",
                               (float) dst->networkDroppedFrames / (float) dst->totalFrames * 100);
         if (vdec_stream_info.has_host_latency) {
-            float avgCapLatency = (float) dst->totalCaptureLatency / (float) dst->submittedFrames / 10.0f;
+            float avgCapLatency = (float) dst->totalCaptureLatency / (float) dst->receivedFrames / 10.0f;
             lv_label_set_text_fmt(controller->stats_items.host_latency, "avg %.2f ms", avgCapLatency);
         } else {
             lv_label_set_text_fmt(controller->stats_items.host_latency, "not available");
