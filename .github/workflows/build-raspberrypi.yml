@@ -53,6 +53,14 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Set Version for Untagged Snapshots
+        shell: bash
+        run: |
+          if ! git describe --tags --abbrev=0 >/dev/null 2>&1; then
+            git tag v1.6.36 HEAD
+          fi
+          git describe --tags --abbrev=0
+
       - name: Update Packages
         shell: bash
         run: |
