@@ -80,6 +80,13 @@ jobs:
           grep -q 'option(MOONLIGHT_BENCH_STATS' CMakeLists.txt
           echo "FULL_SHA=$actual_sha" >> "$GITHUB_ENV"
 
+      - name: Pin package version without release API lookup
+        run: |
+          set -euo pipefail
+          test -z "$(git tag --list)"
+          git tag v1.6.36 "$FULL_SHA"
+          test "$(git describe --tags --abbrev=0)" = v1.6.36
+
       - name: Install pinned CMake
         run: |
           set -euo pipefail
@@ -135,6 +142,8 @@ jobs:
             echo "git_sha=$FULL_SHA"
             echo "tooling_repository=${{ github.repository }}"
             echo "tooling_sha=${{ github.workflow_sha }}"
+            echo "package_version=1.6.36"
+            echo "package_version_origin=workflow-local-tag"
             echo "build_type=RelWithDebInfo"
             echo "MOONLIGHT_BENCH_STATS=ON"
             echo "runner_image=${ImageOS:-unknown}/${ImageVersion:-unknown}"
