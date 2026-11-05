@@ -51,10 +51,10 @@ int main(int argc, char *argv[])
     assert(generateSignature(msg, sizeof(msg), sig, &siglen, &key, &ctr_drbg));
     assert(verifySignature_openssl(msg, sizeof(msg), sig, siglen, crtbuf));
 
-    EVP_PKEY *pkey;
+    EVP_PKEY *pkey = NULL;
     BIO *bio = BIO_new(BIO_s_mem());
     BIO_puts(bio, keybuf);
-    PEM_read_bio_PrivateKey(bio, &pkey, NULL, NULL);
+    assert(PEM_read_bio_PrivateKey(bio, &pkey, NULL, NULL) != NULL);
     BIO_free(bio);
 
     unsigned char *sig2;

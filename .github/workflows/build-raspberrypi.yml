@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Set Short Commit ID
         shell: bash
-        run: echo SHORT_SHA="${HEAD_SHA:0:8}" >> $GITHUB_ENV
+        run: echo "SHORT_SHA=${HEAD_SHA:0:8}" >> "$GITHUB_ENV"
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -70,7 +70,7 @@ jobs:
       - name: Configure CMake
         shell: bash
         working-directory: ${{github.workspace}}/build
-        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        run: cmake "$GITHUB_WORKSPACE" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
         env:
           CMAKE_TOOLCHAIN_FILE: ${{steps.pi-sysroot.outputs.cmake-toolchain}}
 
@@ -78,7 +78,7 @@ jobs:
         working-directory: ${{github.workspace}}/build
         shell: bash
         run: |
-          cmake --build . --config $BUILD_TYPE
+          cmake --build . --config "$BUILD_TYPE"
           cpack
 
       - uses: actions/upload-artifact@v4
