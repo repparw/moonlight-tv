@@ -56,6 +56,7 @@ jobs:
       - name: Set Version for Untagged Snapshots
         shell: bash
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           if ! git describe --tags --abbrev=0 >/dev/null 2>&1; then
             git tag v1.6.36 HEAD
           fi
