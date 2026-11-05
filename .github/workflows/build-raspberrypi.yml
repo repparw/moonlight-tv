@@ -23,6 +23,9 @@ jobs:
   build:
     name: Build (${{ matrix.arch }})
     runs-on: ubuntu-24.04
+    container:
+      image: debian:bookworm
+      options: --privileged
     # Branches of this repository are already built by the push trigger,
     # so only build pull requests opened from forks.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
@@ -32,6 +35,12 @@ jobs:
         arch: [ armhf, arm64 ]
 
     steps:
+      - name: Bootstrap Bookworm Build Host
+        shell: bash
+        run: |
+          apt-get update
+          apt-get -yq install sudo git ca-certificates wget gnupg binfmt-support python3 binutils
+
       - name: Set Short Commit ID
         shell: bash
         run: echo "SHORT_SHA=${HEAD_SHA:0:8}" >> "$GITHUB_ENV"
@@ -48,9 +57,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get -yq update
-          # ubuntu-24.04 runners lack binfmt-support, which the sysroot
-          # action needs to register qemu-arm for package installation.
-          sudo apt-get -yq install binfmt-support
+          test "$(. /etc/os-release; echo "$VERSION_CODENAME")" = bookworm
 
       - name: Prepare Sysroot
         id: pi-sysroot
@@ -62,7 +69,20 @@ jobs:
 
       - name: Install Build Tools
         shell: bash
-        run: sudo apt-get -y -qq install crossbuild-essential-${{ matrix.arch }} cmake gettext
+        run: sudo apt-get -y -qq install crossbuild-essential-${{ matrix.arch }} cmake gettext pkg-config
+
+      - name: Trace Compiler Inputs
+        shell: bash
+        run: |
+          mkdir -p build
+          case "${{ matrix.arch }}" in
+            armhf) triple=arm-linux-gnueabihf ;;
+            arm64) triple=aarch64-linux-gnu ;;
+          esac
+          sysroot="${{ steps.pi-sysroot.outputs.sysroot }}"
+          printf '#include <stdlib.h>\nint main(int c,char **v){return strtol(v[c-1],0,10); }\n' > build/abi-probe.c
+          "$triple-gcc" --sysroot="$sysroot" -std=gnu2x -v -H build/abi-probe.c -Wl,-t -o build/abi-probe > build/toolchain-evidence.txt 2>&1
+          readelf -W --dyn-syms build/abi-probe >> build/toolchain-evidence.txt
 
       - name: Create Build Environment
         run: cmake -E make_directory ${{github.workspace}}/build
@@ -78,8 +98,26 @@ jobs:
         working-directory: ${{github.workspace}}/build
         shell: bash
         run: |
-          cmake --build . --config "$BUILD_TYPE"
+          cmake --build . --config "$BUILD_TYPE" --verbose
           cpack
+
+      - name: Check Packaged Bookworm ABI
+        shell: bash
+        run: |
+          for package in build/*.deb; do
+            python3 scripts/raspi/check-abi.py --arch "${{ matrix.arch }}" --package "$package" --output "build/abi/$(basename "$package")"
+          done
+
+      - name: Upload ABI and Toolchain Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raspi-abi-${{ matrix.arch }}-${{ env.SHORT_SHA }}
+          path: |
+            build/abi/
+            build/toolchain-evidence.txt
+            build/CMakeFiles/CMakeOutput.log
+            build/CMakeFiles/moonlight.dir/link.txt
 
       - uses: actions/upload-artifact@v4
         with:
