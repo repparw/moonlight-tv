@@ -22,7 +22,7 @@ env:
 jobs:
   build:
     name: Build (${{ matrix.arch }})
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     # Branches of this repository are already built by the push trigger,
     # so only build pull requests opened from forks.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Set Short Commit ID
         shell: bash
-        run: echo SHORT_SHA="${HEAD_SHA:0:8}" >> $GITHUB_ENV
+        run: echo "SHORT_SHA=${HEAD_SHA:0:8}" >> "$GITHUB_ENV"
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -46,7 +46,11 @@ jobs:
 
       - name: Update Packages
         shell: bash
-        run: sudo apt-get -yq update
+        run: |
+          sudo apt-get -yq update
+          # ubuntu-24.04 runners lack binfmt-support, which the sysroot
+          # action needs to register qemu-arm for package installation.
+          sudo apt-get -yq install binfmt-support
 
       - name: Prepare Sysroot
         id: pi-sysroot
@@ -66,7 +70,7 @@ jobs:
       - name: Configure CMake
         shell: bash
         working-directory: ${{github.workspace}}/build
-        run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        run: cmake "$GITHUB_WORKSPACE" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
         env:
           CMAKE_TOOLCHAIN_FILE: ${{steps.pi-sysroot.outputs.cmake-toolchain}}
 
@@ -74,7 +78,7 @@ jobs:
         working-directory: ${{github.workspace}}/build
         shell: bash
         run: |
-          cmake --build . --config $BUILD_TYPE
+          cmake --build . --config "$BUILD_TYPE"
           cpack
 
       - uses: actions/upload-artifact@v4
