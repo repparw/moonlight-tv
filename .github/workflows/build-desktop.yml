@@ -63,7 +63,7 @@ jobs:
         working-directory: ${{github.workspace}}/build
         shell: bash
         run: |
-          if grep -q -- '-DNDEBUG' CMakeCache.txt; then
+          if grep -E '^CMAKE_(C|CXX)_FLAGS(_DEBUG)?:STRING=.*-DNDEBUG' CMakeCache.txt; then
             echo "Debug test build unexpectedly defines -DNDEBUG" >&2
             exit 1
           fi
