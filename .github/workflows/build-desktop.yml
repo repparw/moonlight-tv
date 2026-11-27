@@ -58,3 +58,32 @@ jobs:
         working-directory: ${{github.workspace}}/build
         shell: bash
         run: xvfb-run ctest -C "$BUILD_TYPE" --output-on-failure
+
+      - name: Verify Debug test build keeps assertions enabled
+        working-directory: ${{github.workspace}}/build
+        shell: bash
+        run: |
+          if grep -E '^CMAKE_(C|CXX)_FLAGS(_DEBUG)?:STRING=.*-DNDEBUG' CMakeCache.txt; then
+            echo "Debug test build unexpectedly defines -DNDEBUG" >&2
+            exit 1
+          fi
+
+      - name: Configure and test with ASan + UBSan
+        shell: bash
+        env:
+          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B "$GITHUB_WORKSPACE/build-sanitize" \
+            -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DTARGET_DESKTOP=ON -DWITH_SANITIZE=address,undefined
+          cmake --build "$GITHUB_WORKSPACE/build-sanitize" --config "$BUILD_TYPE"
+          xvfb-run ctest --test-dir "$GITHUB_WORKSPACE/build-sanitize" -C "$BUILD_TYPE" --output-on-failure
+
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event_request.head.repo.full_name != github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check scripts for shell errors
+        run: shellcheck -S error scripts/*/*.sh
